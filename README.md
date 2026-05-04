@@ -21,6 +21,7 @@ Este readme.md está organizado nos seguintes campos:
   - [Informações Básicas](#Informações-Básicas): Informações para a execução e replicação dos experimentos, bem como a descrição do ambiente de execução, com requisitos de hardware e software.
   - [Instalação](#Instalação): Instruções sobre a preparação do ambiente para a execução dos experimentos.
   - [Dependências](#Dependências): Dependências para a execução e benchmarks utilizados.
+  - [Preocupações com Segurança](#Preocupações-com-Segurança): Lista possíveis riscos oferecidos pelo artefato.
   - [Teste Mínimo](#Teste-Mínimo): Instruções para um teste simplificado que permita utilizar o código.
   - [Experimentos](#Experimentos): Comandos e instruções para realizar os experimentos descritos e apresentados no artigo.
   - [LICENSE](#LICENSE): Detalhes sobre a licença para utilização do artefato.
@@ -96,6 +97,9 @@ A instalação de todas as dependências necessárias pode ser feita como indica
 ```bash
 pip install torch torchvision flwr==1.15.2 flwr-datasets==0.5.0 datasets==3.1.0 numpy matplotlib tqdm
 ```
+
+# Preocupações com Segurança
+O artefato não oferece riscos para os avaliadores. 
 
 # Teste mínimo
 Execute os comandos desta seção para testar se o script principal pode ser executado sem erros. Este teste não visa reproduzir os resultados completos do 
