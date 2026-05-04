@@ -17,7 +17,7 @@ def main():
     args = parser.parse_args()
 
     script_dir = Path(__file__).parent
-    exp_root = script_dir / "experiments"
+    exp_root = script_dir / "paper_experiments"
 
     if not exp_root.exists():
         print(f"ERROR: Directory not found at {exp_root.absolute()}")

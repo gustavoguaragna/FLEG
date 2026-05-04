@@ -34,7 +34,9 @@ Os selos considerados são:
 
 # Informações Básicas
 
-O artefato consiste em três scripts em Python: "FLEG.py", script principal e responsável pelo fluxo de treinamento do FLEG; "task.py", com classes e funções auxiliares; e "generate_figs.py", que reproduz os gráficos apresentados no artigo. Além disso, inclui um arquivo de texto "requirements.txt" com as bibliotecas necessárias para a execução dos experimentos, um script shell para facilitar execução sequencial de múltiplos experimentos, este arquivo README.md, o arquivo de licença, a pasta "experimentos", que contém os dados armazenados de cada experimento realizado que aparece no artigo e o arquivo "FLEG.png" com a ilustração do FLEG. Isso siginifica que os experimentos contidos neste artefato são referentes ao trial que obteve a mediana das acurácias máximas para cada combinação de parâmetros testada. Desse modo, a pasta "experimentos" contém 44 pastas, sendo que cada uma é nomeada de acordo com os parâmetros do respectivo experimento, assim como explicado na seção [Teste Mínimo](#Teste-Mínimo). Para as pastas dos experimentos, deixamos disponível somente o arquivo "metrics.josn" com métricas da execução do experimento.
+O artefato consiste em três scripts em Python: "FLEG.py", script principal e responsável pelo fluxo de treinamento do FLEG; "task.py", com classes e funções auxiliares; e "generate_figs.py", que reproduz os gráficos apresentados no artigo. Além disso, inclui um arquivo de texto "requirements.txt" com as bibliotecas necessárias para a execução dos experimentos, um script shell para facilitar execução sequencial de múltiplos experimentos, este arquivo README.md, o arquivo de licença e o arquivo "FLEG.png" com a ilustração do FLEG.
+
+O diretório "paper_experiments" contém os dados armazenados de cada experimento apresentado no artigo. Isso significa que os experimentos contidos neste artefato são referentes ao _trial_ que obteve a mediana das acurácias máximas para cada combinação de parâmetros testada. Desse modo, a pasta "paper_experiments" contém 44 pastas, sendo que cada uma é nomeada de acordo com os parâmetros do respectivo experimento, assim como explicado na seção [Teste Mínimo](#Teste-Mínimo). Para as pastas dos experimentos, deixamos disponível somente o arquivo "metrics.json" com métricas da execução do experimento. O diretório "experiments" é reservado para novas execuções de "FLEG.py"; caso não exista, ele é criado automaticamente.
 
 Linguagem: Python versões 3.10 a 3.12. Todos os experimentos foram executados e validados com Python 3.10.18.
 
@@ -107,8 +109,8 @@ Todos esses parâmetros são definidos para ter o valor 2 neste teste.
 Além disso, o conjunto de dados total utilizado é reduzido a 10% do tamanho original.
 
 Dessa forma, o teste mínimo deve durar cerca de 2 minutos para completar, sem o uso de GPU. Durante a execução, mensagens de log referentes ao treinamento são 
-exibidas no console, e um subdiretório é criado no diretório raiz onde o experimento é executado. O subdiretório é nomeado de acordo com os parâmetros selecionados 
-do experimento, de forma que para o teste mínimo o nome será: "mnist_ClassPartitioner_fedavg_numchunks2_ganepochs2_dynamic_fleg_trial1". Dentro dele são gerados 
+exibidas no console, e um subdiretório é criado dentro do diretório "experiments", na raiz do repositório. O subdiretório é nomeado de acordo com os parâmetros selecionados 
+do experimento, de forma que para o teste mínimo o caminho será: "experiments/mnist_ClassPartitioner_fedavg_numchunks2_ganepochs2_dynamic_fleg_trial1". Dentro dele são gerados 
 seis arquivos. Cinco arquivos são de checkpoints de treinamento (um por nível), nomeados no formato "checkpoint_level{i}.pth" , sendo {i} o número do respectivo nível. Para o nível 5, o nome é "checkpoint_end.pth".
 Esses arquivos contêm o dicionário de estado do modelo classificador, assim como o nível e o conjunto de _embeddings_ sintéticos gerado para utilização no próximo
 nível. O conjunto de _embeddings_ não está presente no "checkpoint_end.pth", uma vez que para o último nível não há treinamento da CGAN. O arquivo restante é
@@ -122,7 +124,7 @@ python FLEG.py --test_mode
 
 # Experimentos
 
-Para facilitar a execução dos experimentos realizados no artigo, disponibilizamos a sequência de comandos no arquivo "run_experiments.sh". Nele não estão listados os experimentos realizados e que não estão apresentados no artigo, correspondendo somente ao _trial_ que atingiu a mediana das acurácias máximas dos _trials_ para uma dada combinação de parâmetros. Dessa maneira, são listados os comandos para um total de 44 experimentos que, em uma GPU NVIDIA Quadro RTX 6000, levou aproximadamente 48 horas para a execução. Durante a execução de cada experimento, é criado um subdiretório no diretório raiz da execução, nomeado de acordo com os 
+Para facilitar a execução dos experimentos realizados no artigo, disponibilizamos a sequência de comandos no arquivo "run_experiments.sh". Nele não estão listados os experimentos realizados e que não estão apresentados no artigo, correspondendo somente ao _trial_ que atingiu a mediana das acurácias máximas dos _trials_ para uma dada combinação de parâmetros. Dessa maneira, são listados os comandos para um total de 44 experimentos que, em uma GPU NVIDIA Quadro RTX 6000, levou aproximadamente 48 horas para a execução. Durante a execução de cada experimento, é criado um subdiretório dentro de "experiments/", nomeado de acordo com os 
 parâmetros do experimento, no padrão: '{dataset}\_{particionador}\_{baseline}_numchunks{número de chunks}\_ganepochs{épocas da GAN}\_{modo para geração de dados}_fleg_trial{identificador do _trial_}'.
 Para executar o arquivo "run_experiments.sh" o usuário deve ter permissão para execução. Em Linux, basta executar o seguinte comando na primeira vez em que for usar:
 ```bash
@@ -135,13 +137,12 @@ Para executar todos os experimentos, basta executar o arquivo "run_experiments.s
 ```
 Dentro do diretório de cada experimento são gerados seis arquivos conforme explicado na seção [Teste mínimo](#Teste-Mínimo) deste README. 
 
-Os gráficos apresentados no artigo baseiam-se nos arquivos "metrics.json" dos experimentos e são gerados pelo script "generate_figs.py". Basta executar o comando abaixo, utilizando o argumento --figure para indicar o número da figura correspondente no artigo que se deseja gerar. Por exemplo, para a Figura 2:
+Os gráficos apresentados no artigo baseiam-se nos arquivos "metrics.json" disponíveis em "paper_experiments/" e são gerados pelo script "generate_figs.py". Basta executar o comando abaixo, utilizando o argumento --figure para indicar o número da figura correspondente no artigo que se deseja gerar. Por exemplo, para a Figura 2:
 ```bash
 python generate_figs.py --figure 2
 ```
-generate_figs cria o subdiretório ./figures e salva a figura desejada em pdf no subdiretório criado. São possíveis gerar os gráficos das figuras 2, 3, 4 e 5 do artigo. A figura 1 é o panorama geral do método e não contém resultados.
+O script "generate_figs.py" cria o subdiretório ./figures e salva a figura desejada em pdf no subdiretório criado. São possíveis gerar os gráficos das figuras 2, 3, 4 e 5 do artigo. A figura 1 é o panorama geral do método e não contém resultados.
 
 # LICENSE
 
 Este projeto está licenciado sobre a Licença GNU GPLv3. Verifique o arquivo LICENSE para todos os detalhes.
-

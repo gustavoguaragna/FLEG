@@ -120,17 +120,21 @@ def setup_environment_and_models(args, device):
     models_dict["image_key"] = image_key
 
     # Criação de pastas
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    experiments_root = os.path.join(script_dir, "experiments")
     if args.baseline:
-        folder = f"{args.dataset}_{args.partitioner}_{args.strategy}_baseline_trial{args.trial}"
+        experiment_name = f"{args.dataset}_{args.partitioner}_{args.strategy}_baseline_trial{args.trial}"
     else:
-        folder = f"{args.dataset}_{args.partitioner}_{args.strategy}_numchunks{args.num_chunks}_ganepochs{args.gan_epochs}_{args.num_syn}_fleg_trial{args.trial}"
+        experiment_name = f"{args.dataset}_{args.partitioner}_{args.strategy}_numchunks{args.num_chunks}_ganepochs{args.gan_epochs}_{args.num_syn}_fleg_trial{args.trial}"
+    folder = os.path.join(experiments_root, experiment_name)
     os.makedirs(folder, exist_ok=True)
 
     # Carregamento do Checkpoint
     start_level = 0
     checkpoint_loaded = None
     if args.checkpoint_level is not None:
-        checkpoint_loaded = torch.load(f"checkpoint_level{args.checkpoint_level}.pth")
+        checkpoint_path = os.path.join(folder, f"checkpoint_level{args.checkpoint_level}.pth")
+        checkpoint_loaded = torch.load(checkpoint_path)
         models_dict["global_net"].load_state_dict(checkpoint_loaded['classifier_state_dict'])
         models_dict["global_net"].to(device)
         start_level = args.checkpoint_level
