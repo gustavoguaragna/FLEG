@@ -340,7 +340,7 @@ class BaseEmbeddingGAN(nn.Module):
             else:
                 return self.discriminator(input_tensor)
         else:
-            raise ValueError(f"Input tensor shape {input_tensor.shape} invalid. Expected dim {self.latent_dim} (Gen) or {self.embedding_dim} (Disc).")
+            raise ValueError(f"Formato do tensor de entrada {input_tensor.shape} inválido. Era esperada a dimensão {self.latent_dim} (Gerador) ou {self.embedding_dim} (Discriminador).")
 
     def loss(self, output, label):
         return self.adv_loss(output, label)
@@ -626,7 +626,7 @@ class GeneratedAssetDataset(torch.utils.data.Dataset):
 
         if desired_classes is not None and len(desired_classes) > 0:
             if not all(0 <= c < self.total_num_classes for c in desired_classes):
-                raise ValueError(f"All desired classes must be integers between 0 and {self.total_num_classes - 1}")
+                raise ValueError(f"Todas as classes desejadas devem ser inteiros entre 0 e {self.total_num_classes - 1}")
             self._actual_classes_to_generate = sorted(list(set(desired_classes)))
         else:
             self._actual_classes_to_generate = list(range(self.total_num_classes))
@@ -635,14 +635,14 @@ class GeneratedAssetDataset(torch.utils.data.Dataset):
         self.num_generated_classes = len(self.classes)
 
         if self.num_generated_classes == 0 and self.num_samples > 0:
-             raise ValueError("Cannot generate samples with an empty list of desired classes.")
+             raise ValueError("Não é possível gerar amostras com uma lista vazia de classes desejadas.")
         elif self.num_samples == 0:
-             print("Warning: num_samples is 0. Dataset will be empty.")
+             print("Aviso: num_samples é 0. O dataset ficará vazio.")
              self.assets = torch.empty(0, *self.asset_shape) if self.asset_shape else torch.empty(0)
              self.labels = torch.empty(0, dtype=torch.long)
         else:
              if self.asset_shape is None:
-                 raise ValueError("asset_shape must be provided when num_samples > 0.")
+                 raise ValueError("asset_shape deve ser fornecido quando num_samples > 0.")
              self.assets, self.labels = self.generate_data()
 
 
@@ -679,7 +679,7 @@ class GeneratedAssetDataset(torch.utils.data.Dataset):
         if generated_assets_list:
             all_gen_assets = torch.cat(generated_assets_list, dim=0)
         else:
-            print("Warning: No images generated. Returning empty tensor for images.")
+            print("Aviso: nenhuma imagem foi gerada. Retornando um tensor vazio para as imagens.")
             all_gen_assets = torch.empty(0, *self.asset_shape, device=self.device)
 
         return all_gen_assets, labels
@@ -729,8 +729,8 @@ class ClassPartitioner(Partitioner):
 
         if self._num_partitions > num_classes:
             raise ValueError(
-                f"Cannot create {self._num_partitions} partitions with only {num_classes} classes. "
-                f"Reduce partitions to ≤ {num_classes}."
+                f"Não é possível criar {self._num_partitions} partições com apenas {num_classes} classes. "
+                f"Reduza as partições para ≤ {num_classes}."
             )
 
         rng = random.Random(self._seed)
@@ -764,9 +764,9 @@ class ClassPartitioner(Partitioner):
         Retorna subconjunto do dataset original contendo apenas os índices correspondentes à partição especificada.
         """
         if not self.is_dataset_assigned():
-            raise RuntimeError("Dataset must be assigned before loading partitions")
+            raise RuntimeError("O dataset deve ser atribuído antes de carregar partições")
         if partition_id < 0 or partition_id >= self.num_partitions:
-            raise ValueError(f"Invalid partition ID: {partition_id}")
+            raise ValueError(f"ID de partição inválido: {partition_id}")
 
         return self.dataset.select(self._partition_indices[partition_id])
 
@@ -837,19 +837,19 @@ def choose_minority_labels(counts: Counter,
 
     if method == 'topk':
         if k is None:
-            raise ValueError("k must be provided for topk method")
+            raise ValueError("k deve ser fornecido para o método topk")
         return [l for l, _ in sorted(full_counts.items(), key=lambda kv: kv[1])][:k]
     elif method == 'threshold':
         if threshold is None:
-            raise ValueError("threshold must be provided for threshold method")
+            raise ValueError("threshold deve ser fornecido para o método threshold")
         return [l for l, c in full_counts.items() if c <= threshold]
     elif method == 'ratio':
         if ratio is None:
-            raise ValueError("ratio must be provided for ratio method")
+            raise ValueError("ratio deve ser fornecido para o método ratio")
         maxc = max(full_counts.values()) if full_counts else 0
         return [l for l, c in full_counts.items() if c <= ratio * maxc]
     else:
-        raise ValueError(f"Unknown method '{method}'.")
+        raise ValueError(f"Método desconhecido '{method}'.")
 
 
 def build_label_index_map(dataset, label_key='label') -> Dict[int, List[int]]:
@@ -881,10 +881,10 @@ def sample_generated_indices_for_labels(gen_dataset,
         if need <= 0:
             continue
         if len(available) == 0:
-            print(f"Warning: no generated samples for label {lbl}")
+            print(f"Aviso: não há amostras geradas para o rótulo {lbl}")
             continue
         if len(available) < need:
-            print(f"Warning: requested {need} for label {lbl} but only {len(available)} available; taking all.")
+            print(f"Aviso: foram solicitadas {need} amostras para o rótulo {lbl}, mas apenas {len(available)} estão disponíveis; usando todas.")
             chosen.extend(available)
         else:
             chosen.extend(random.sample(available, need))
@@ -916,9 +916,9 @@ def unpack_batch(batch, image_key='image', label_key='label'):
         if len(batch) >= 2:
             images, labels = batch[0], batch[1]
         else:
-            raise ValueError("Tuple batch with unexpected length")
+            raise ValueError("Tupla de batch com tamanho inesperado")
     else:
-        raise ValueError("Unsupported batch type: %s" % type(batch))
+        raise ValueError("Tipo de batch não suportado: %s" % type(batch))
     return images, labels
 
 class EmbeddingPairDataset(torch.utils.data.Dataset):
@@ -949,7 +949,7 @@ def augment_client_with_generated(client_train,
     """
 
     if len(counts)==0:
-        print("Warning: client_train has zero samples.")
+        print("Aviso: client_train possui zero amostras.")
     max_count = max(counts.values()) if counts else 0
 
     if strategy == 'fill_to_max':
@@ -957,26 +957,26 @@ def augment_client_with_generated(client_train,
         per_label_target = {l: max_count for l in desired_labels}
     elif strategy == 'fill_to':
         if fill_to is None:
-            raise ValueError("fill_to must be provided for 'fill_to' strategy")
+            raise ValueError("fill_to deve ser fornecido para a estratégia 'fill_to'")
         desired_labels = [l for l, c in counts.items() if c < fill_to]
         per_label_target = {l: fill_to for l in desired_labels}
     elif strategy == 'topk':
         if k is None or fill_to is None:
-            raise ValueError("k and fill_to required for topk")
+            raise ValueError("k e fill_to são obrigatórios para topk")
         desired_labels = choose_minority_labels(counts, method='topk', k=k)
         per_label_target = {l: fill_to for l in desired_labels}
     elif strategy == 'threshold':
         if threshold is None or fill_to is None:
-            raise ValueError("threshold and fill_to required for threshold")
+            raise ValueError("threshold e fill_to são obrigatórios para threshold")
         desired_labels = choose_minority_labels(counts, method='threshold', threshold=threshold)
         per_label_target = {l: fill_to for l in desired_labels}
     elif strategy == 'ratio':
         if ratio is None or fill_to is None:
-            raise ValueError("ratio and fill_to required for ratio")
+            raise ValueError("ratio e fill_to são obrigatórios para ratio")
         desired_labels = choose_minority_labels(counts, method='ratio', ratio=ratio)
         per_label_target = {l: fill_to for l in desired_labels}
     else:
-        raise ValueError("Unknown strategy")
+        raise ValueError("Estratégia desconhecida")
 
     need_per_label = {}
     for l in desired_labels:
@@ -1037,8 +1037,8 @@ def plot_series(
     hide_inner_ticks: bool = False,
     xlim: Union[tuple[float, float], List[tuple[float, float]]] = None,
     ylim: Union[tuple[float, float], List[tuple[float, float]]] = None,
-    xlabel: Union[str, List[str]] = "Epochs",
-    ylabel: Union[str, List[str]] = "Value",
+    xlabel: Union[str, List[str]] = "Épocas",
+    ylabel: Union[str, List[str]] = "Valor",
     label_fontsize: float = None,
     row_labels: List[str] = None,
     row_label_fontsize: float = None,
@@ -1073,7 +1073,7 @@ def plot_series(
     if subplot_layout:
         nrows, ncols = subplot_layout
         if nrows * ncols < num_plots:
-            raise ValueError(f"Layout {subplot_layout} is too small for {num_plots} groups.")
+            raise ValueError(f"O layout {subplot_layout} é pequeno demais para {num_plots} grupos.")
     else:
         nrows, ncols = num_plots, 1
 
