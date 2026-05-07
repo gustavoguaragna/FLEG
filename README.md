@@ -35,17 +35,15 @@ Os selos considerados são:
 
 # Informações Básicas
 
-O artefato consiste em três scripts em Python: "FLEG.py", script principal e responsável pelo fluxo de treinamento do FLEG; "task.py", com classes e funções auxiliares; e "generate_figs.py", que reproduz os gráficos apresentados no artigo. Além disso, inclui um arquivo de texto "requirements.txt" com as bibliotecas necessárias para a execução dos experimentos, um script shell para facilitar execução sequencial de múltiplos experimentos, este arquivo README.md, o arquivo de licença e o arquivo "FLEG.png" com a ilustração do FLEG.
+O artefato consiste em três scripts em Python: "FLEG.py", script principal e responsável pelo fluxo de treinamento do FLEG; "task.py", com classes e funções auxiliares; e "generate_figs.py", que reproduz os gráficos apresentados no artigo. O arquivo "plot_utils.py" concentra funções auxiliares de visualização usadas por "generate_figs.py". Além disso, inclui um arquivo de texto "requirements.txt" com as bibliotecas necessárias para a execução dos experimentos, um script shell para facilitar execução sequencial de múltiplos experimentos, este arquivo README.md, o arquivo de licença e o arquivo "FLEG.png" com a ilustração do FLEG.
 
 O diretório "paper_experiments" contém os dados armazenados de cada experimento apresentado no artigo. Isso significa que os experimentos contidos neste artefato são referentes ao _trial_ que obteve a mediana das acurácias máximas para cada combinação de parâmetros testada. Desse modo, a pasta "paper_experiments" contém 44 pastas, sendo que cada uma é nomeada de acordo com os parâmetros do respectivo experimento, assim como explicado na seção [Teste Mínimo](#Teste-Mínimo). Para as pastas dos experimentos, deixamos disponível somente o arquivo "metrics.json" com métricas da execução do experimento. O diretório "experiments" é reservado para novas execuções de "FLEG.py"; caso não exista, ele é criado automaticamente.
 
 Linguagem: Python versões 3.10 a 3.12. Todos os experimentos foram executados e validados com Python 3.10.18.
 
-Ambiente de Teste: Compatível com Linux, Windows e MacOS. Testado com Linux Ubuntu 20.04.6 LTS.
+Ambiente de Teste: Compatível com Linux, Windows e MacOS. Testado com Linux 5.15.0-139-generic #149~20.04.1-Ubuntu SMP.
 
-Hardware Recomendado: * Mínimo de 8 GB de RAM.
-
-GPU NVIDIA com suporte a CUDA (mínimo 4 GB VRAM) para execução acelerada, embora suporte execução em CPU.
+Hardware Recomendado: Mínimo de 8 GB de RAM. GPU NVIDIA com suporte a CUDA (mínimo 4 GB VRAM) para execução acelerada, embora suporte execução em CPU.
 
 # Instalação
 
@@ -99,7 +97,7 @@ pip install torch torchvision flwr==1.15.2 flwr-datasets==0.5.0 datasets==3.1.0 
 ```
 
 # Preocupações com Segurança
-O artefato não oferece riscos para os avaliadores. 
+Não foram identificadas possíveis ameaças causadas pelo artefato aos seus usuários.
 
 # Teste mínimo
 Execute os comandos desta seção para testar se o script principal pode ser executado sem erros. Este teste não visa reproduzir os resultados completos do 
@@ -145,7 +143,11 @@ Os gráficos apresentados no artigo baseiam-se nos arquivos "metrics.json" dispo
 ```bash
 python generate_figs.py --figure 2
 ```
-O script "generate_figs.py" cria o subdiretório ./figures e salva a figura desejada em pdf no subdiretório criado. São possíveis gerar os gráficos das figuras 2, 3, 4 e 5 do artigo. A figura 1 é o panorama geral do método e não contém resultados.
+Uma dica é utilizar o parâmetro '--no-show' para evitar abrir a imagem gerada.
+O script "generate_figs.py" cria o subdiretório ./figures e salva a figura desejada no subdiretório criado. São possíveis gerar os gráficos das figuras 2, 3, 4 e 5 do artigo. A figura 1 é o panorama geral do método e não contém resultados.
+
+Para reutilizar o script com novas execuções, é possível alterar o diretório de entrada e o diretório de saída através dos argumentos 'experiments-dir' e 'output-dir'.
+```
 
 # LICENSE
 

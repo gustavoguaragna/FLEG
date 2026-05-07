@@ -1,79 +1,319 @@
 import re
 import argparse
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
+import math
 from pathlib import Path
 import json
-import os
 
-from task import plot_series, plot_by_marker, calculate_times_and_accs
 
-def main():
-    parser = argparse.ArgumentParser(description="Recreate figures from FLEG article")
+DEFAULT_FIGURE2_SERIES = [
+    ("FLEG", "cifar10_Dir01_fedavg_numchunks100_ganepochs30_dynamic_fleg_trial3_metrics.json"),
+    ("FedAvg", "cifar10_Dir01_fedavg_baseline_trial2_metrics.json"),
+]
 
-    parser.add_argument("--figure", type=int, help="Figure number to recreate (e.g., 1, 2, 3, etc.)", required=True)
+DEFAULT_FIGURE2_STYLES = {
+    "FLEG": {"color": "navy", "linewidth": 3},
+    "FedAvg": {"color": "indianred", "linewidth": 3},
+}
 
+DEFAULT_BASELINE_MB_PER_EPOCH = {
+    "cifar": 0.25,
+    "mnist": 0.18,
+}
+
+DEFAULT_BASELINE_TRAFFIC_FACTOR = 2
+
+
+def parse_name_value(value):
+    if "=" not in value:
+        raise argparse.ArgumentTypeError("Use o formato nome=valor.")
+    name, raw_value = value.split("=", 1)
+    name = name.strip()
+    raw_value = raw_value.strip()
+    if not name or not raw_value:
+        raise argparse.ArgumentTypeError("Nome e valor precisam ser preenchidos.")
+    return name, raw_value
+
+
+def parse_level_markers(value):
+    markers = {}
+    for item in value.split(","):
+        item = item.strip()
+        if not item:
+            continue
+        label, raw_position = parse_name_value(item)
+        try:
+            markers[label] = int(raw_position)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError("Marcadores devem usar posições inteiras.") from exc
+    return markers
+
+
+def parse_figsize(value):
+    normalized = value.lower().replace("x", ",")
+    parts = [part.strip() for part in normalized.split(",") if part.strip()]
+    if len(parts) != 2:
+        raise argparse.ArgumentTypeError("Use o formato largura,altura. Exemplo: 20,4.")
+    try:
+        return float(parts[0]), float(parts[1])
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("As dimensões da figura devem ser numéricas.") from exc
+
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Gera figuras a partir de arquivos metrics.json do FLEG.")
+
+    parser.add_argument("--figure", type=int, choices=[2, 3, 4, 5], help="Número da figura a gerar.")
+    parser.add_argument(
+        "--experiments-dir",
+        type=Path,
+        default=None,
+        help="Diretório que contém subpastas de experimentos. Padrão: ./paper_experiments.",
+    )
+    parser.add_argument(
+        "--metrics-file",
+        default="metrics.json",
+        help="Nome do arquivo de métricas dentro de cada experimento.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("figures"),
+        help="Diretório onde as figuras serão salvas.",
+    )
+    parser.add_argument("--output-prefix", default="FLEG", help="Prefixo dos arquivos de saída.")
+    parser.add_argument(
+        "--output-format",
+        default="png",
+        choices=["pdf", "png", "svg"],
+        help="Formato das figuras salvas.",
+    )
+    parser.add_argument(
+        "--metric-label",
+        default="Acurácia",
+        help="Rótulo exibido para a métrica principal.",
+    )
+    parser.add_argument(
+        "--traffic-key",
+        default="MB_transmission",
+        help="Chave usada para tráfego nas figuras que calculam custo de comunicação.",
+    )
+    parser.add_argument(
+        "--list-experiments",
+        action="store_true",
+        help="Lista as chaves de experimentos encontradas e encerra.",
+    )
+    parser.add_argument(
+        "--no-show",
+        action="store_true",
+        help="Salva a figura sem abrir uma janela interativa.",
+    )
+
+    parser.add_argument("--linewidth", type=float, default=3, help="Espessura das linhas da Figura 2.")
+    parser.add_argument(
+        "--level-markers",
+        type=parse_level_markers,
+        default=None,
+        help="Marcadores verticais da Figura 2. Exemplo: N1=37,N2=55.",
+    )
+    parser.add_argument(
+        "--no-level-markers",
+        action="store_true",
+        help="Remove os marcadores verticais da Figura 2.",
+    )
+    parser.add_argument(
+        "--figure2-figsize",
+        type=parse_figsize,
+        default=(20, 4),
+        help="Tamanho da Figura 2 no formato largura,altura.",
+    )
+
+    parser.add_argument(
+        "--baseline-max-epochs",
+        type=int,
+        default=150,
+        help="Número máximo de épocas usado para estimar tráfego de baselines.",
+    )
     args = parser.parse_args()
+    args.output_format = args.output_format.lstrip(".")
 
-    script_dir = Path(__file__).parent
-    exp_root = script_dir / "paper_experiments"
+    if args.figure is None and not args.list_experiments:
+        parser.error("Informe --figure ou use --list-experiments.")
 
-    if not exp_root.exists():
-        print(f"ERROR: Directory not found at {exp_root.absolute()}")
-        return
-    
-    files = list(exp_root.glob("*/metrics.json"))
+    return args
 
-    os.makedirs("./figures", exist_ok=True)
+
+def metrics_key_from_path(metrics_path, experiments_dir):
+    relative_path = metrics_path.relative_to(experiments_dir)
+    return "_".join(relative_path.parts)
+
+
+def load_metrics(experiments_dir, metrics_file):
+    if not experiments_dir.exists():
+        raise FileNotFoundError(f"Diretório não encontrado: {experiments_dir.absolute()}")
+
+    files = sorted(experiments_dir.glob(f"*/{metrics_file}"))
+    if not files:
+        raise FileNotFoundError(
+            f"Nenhum arquivo {metrics_file!r} encontrado em {experiments_dir.absolute()}"
+        )
 
     loaded_dicts = {}
+    for metrics_path in files:
+        with open(metrics_path, "r", encoding="utf-8") as f:
+            metrics = json.load(f)
+        loaded_dicts[metrics_key_from_path(metrics_path, experiments_dir)] = metrics
+    return loaded_dicts
 
-    for file in files:
-        with open(file, 'r', encoding='utf-8') as f:
-            file_path_str = str(file)
-            
-            # Slice the path starting from 'cifar' or 'mnist'
-            if "cifar" in file_path_str:
-                clean_path = file_path_str[file_path_str.index("cifar"):]
-            elif "mnist" in file_path_str:
-                clean_path = file_path_str[file_path_str.index("mnist"):]
-            else:
-                clean_path = file_path_str # Fallback 
-                
-            # Replace the remaining slash separating the folder and metrics.json with an underscore
-            final_key = clean_path.replace("/", "_").replace("\\", "_")
-            
-            loaded_dicts[final_key] = json.load(f)
+
+def resolve_experiment_key(loaded_dicts, reference, metrics_file):
+    path_key = "_".join(Path(reference).parts)
+    candidates = [reference, path_key]
+    if not path_key.endswith(metrics_file):
+        candidates.append(f"{path_key}_{metrics_file}")
+
+    for candidate in candidates:
+        if candidate in loaded_dicts:
+            return candidate
+
+    matches = []
+    for key in loaded_dicts:
+        if any(key.endswith(f"_{candidate}") for candidate in candidates):
+            matches.append(key)
+
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        raise KeyError(f"Referência ambígua {reference!r}. Possibilidades: {', '.join(matches)}")
+
+    sample = ", ".join(list(loaded_dicts.keys())[:5])
+    raise KeyError(f"Experimento {reference!r} não encontrado. Exemplos disponíveis: {sample}")
+
+
+def get_metric(loaded_dicts, experiment_reference, metrics_file):
+    experiment_key = resolve_experiment_key(loaded_dicts, experiment_reference, metrics_file)
+    metrics = loaded_dicts[experiment_key]
+    if "net_acc" not in metrics:
+        available = ", ".join(sorted(metrics.keys()))
+        raise KeyError(f"Métrica 'net_acc' ausente em {experiment_key}. Disponíveis: {available}")
+    return metrics["net_acc"]
+
+
+def build_figure2_series(loaded_dicts, args):
+    series = {}
+    for label, experiment_reference in DEFAULT_FIGURE2_SERIES:
+        series[label] = get_metric(loaded_dicts, experiment_reference, args.metrics_file)
+    return series
+
+
+def build_level_markers_from_accuracy_transition(loaded_dicts, args):
+    for _, experiment_reference in DEFAULT_FIGURE2_SERIES:
+        experiment_key = resolve_experiment_key(loaded_dicts, experiment_reference, args.metrics_file)
+        metrics = loaded_dicts[experiment_key]
+        transitions = metrics.get("accuracy_transition")
+        net_acc = metrics.get("net_acc")
+
+        if not transitions or not net_acc:
+            continue
+
+        markers = {}
+        # O último valor marca o fim do treinamento; as linhas verticais indicam transições entre níveis.
+        for level_index, target_acc in enumerate(transitions[:-1], start=1):
+            marker_position = None
+            for epoch_index, acc in enumerate(net_acc):
+                if math.isclose(acc, target_acc, rel_tol=1e-9, abs_tol=1e-12):
+                    marker_position = epoch_index
+                    break
+
+            if marker_position is not None:
+                markers[f"N{level_index}"] = marker_position
+
+        if markers:
+            return markers
+
+    return None
+
+
+def build_figure2_styles(series_names, args):
+    styles = {}
+    for name in series_names:
+        style = DEFAULT_FIGURE2_STYLES.get(name, {}).copy()
+        style["linewidth"] = args.linewidth
+        styles[name] = style
+    return styles
+
+
+def figure_path(args, figure_number):
+    return args.output_dir / f"{args.output_prefix}_figure{figure_number}.{args.output_format}"
+
+
+def estimate_baseline_traffic_mb(exp_name, exp_dict, args):
+    if args.traffic_key in exp_dict:
+        return sum(exp_dict[args.traffic_key])
+
+    net_acc_length = len(exp_dict.get("net_acc", []))
+    epochs = min(args.baseline_max_epochs, net_acc_length)
+
+    if "cifar" in exp_name:
+        mb_per_epoch = DEFAULT_BASELINE_MB_PER_EPOCH["cifar"]
+    elif "mnist" in exp_name:
+        mb_per_epoch = DEFAULT_BASELINE_MB_PER_EPOCH["mnist"]
+    else:
+        raise ValueError(
+            f"{exp_name} não possui {args.traffic_key!r}; informe o tráfego no metrics.json."
+        )
+
+    return epochs * mb_per_epoch * DEFAULT_BASELINE_TRAFFIC_FACTOR
+
+
+def main():
+    args = parse_arguments()
+
+    script_dir = Path(__file__).parent
+    exp_root = args.experiments_dir or script_dir / "paper_experiments"
+    exp_root = exp_root.expanduser().resolve()
+
+    try:
+        loaded_dicts = load_metrics(exp_root, args.metrics_file)
+    except FileNotFoundError as exc:
+        print(f"ERROR: {exc}")
+        return
+
+    if args.list_experiments:
+        print(f"Experimentos encontrados em {exp_root}:")
+        for key in loaded_dicts:
+            print(key)
+        return
+
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    import numpy as np
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+    from plot_utils import plot_series, plot_by_marker, calculate_times_and_accs
 
     if args.figure == 2:
+        series = build_figure2_series(loaded_dicts, args)
+        level_markers = None
+        if not args.no_level_markers:
+            level_markers = args.level_markers or build_level_markers_from_accuracy_transition(loaded_dicts, args)
+
         plot_series(
-            series={
-                "FLEG": loaded_dicts["cifar10_Dir01_fedavg_numchunks100_ganepochs30_dynamic_fleg_trial3_metrics.json"]["net_acc"],
-                "FedAvg": loaded_dicts["cifar10_Dir01_fedavg_baseline_trial2_metrics.json"]["net_acc"],
-            },
-            series_styles={
-                "FLEG": {"color": "navy", "linewidth": 3},
-                "FedAvg": {"color": "indianred", "linewidth": 3}
-            },
-            figsize = (20,4),
-            level_markers={
-                "N1": 37,
-                "N2": 55,
-                "N3": 67,
-                "N4": 78
-            },
+            series=series,
+            series_styles=build_figure2_styles(series.keys(), args),
+            figsize=args.figure2_figsize,
+            level_markers=level_markers,
             num_xticks=5,
 
             label_fontsize=22,
             tick_fontsize=18,
             legend_fontsize=20,
 
-            ylabel="Acurácia",
+            ylabel=args.metric_label,
             xlabel="Épocas",
 
             save=True,
-            plot_name="./figures/FLEG_figure2.pdf"
+            plot_name=str(figure_path(args, 2)),
+            show=not args.no_show
             
         )
 
@@ -323,7 +563,7 @@ def main():
 
             xlabel=["","","",
                     "Épocas", "Épocas", "Épocas"]*3,
-            ylabel="Acurácia",
+            ylabel=args.metric_label,
             label_fontsize=16,
 
             tick_fontsize=15,
@@ -348,7 +588,8 @@ def main():
                             "columnspacing": 0.7,"handlelength": 1, "labelspacing": 0.1,"handletextpad": 0.2},
             
             save=True,
-            plot_name="./figures/FLEG_figure3.pdf",
+            plot_name=str(figure_path(args, 3)),
+            show=not args.no_show,
         )
     
     elif args.figure == 4:
@@ -356,14 +597,7 @@ def main():
 
         for key, data in loaded_dicts.items():
             if 'baseline' in key:
-                net_acc_length = len(data.get('net_acc', []))
-                
-                if 'cifar10' in key:
-                    value = min(150, net_acc_length) * 0.25 * 2
-                elif 'mnist' in key:
-                    value = min(150, net_acc_length) * 0.18 * 2
-                
-                baseline_values[key] = value
+                baseline_values[key] = estimate_baseline_traffic_mb(key, data, args)
             
         gb_cifar = []
         acc_cifar = []
@@ -381,7 +615,7 @@ def main():
             if "fleg" in exp_name:
 
                 if "cifar" in exp_name:
-                    gb_cifar.append(sum(exp_dict["MB_transmission"])/1e3)
+                    gb_cifar.append(sum(exp_dict[args.traffic_key])/1e3)
                     acc_cifar.append(max(exp_dict["net_acc"]))
 
                     if "Class" in exp_name:
@@ -403,7 +637,7 @@ def main():
                         raise ValueError(f"{exp_name} with no mode")
                     
                 elif "mnist" in exp_name:
-                    gb_mnist.append(sum(exp_dict["MB_transmission"])/1e3)
+                    gb_mnist.append(sum(exp_dict[args.traffic_key])/1e3)
                     acc_mnist.append(max(exp_dict["net_acc"]))
                     
                     if "Class" in exp_name:
@@ -430,7 +664,7 @@ def main():
             elif "baseline" in exp_name:
                 if "cifar" in exp_name:
                     gb_cifar.append(baseline_values[exp_name]/1e3)
-                    acc_cifar.append(max(exp_dict["net_acc"][:150]))
+                    acc_cifar.append(max(exp_dict["net_acc"][:args.baseline_max_epochs]))
                     markers_cifar.append("o") 
                     if "Class" in exp_name:
                         cores_cifar.append("firebrick")
@@ -443,7 +677,7 @@ def main():
 
                 elif "mnist" in exp_name:
                     gb_mnist.append(baseline_values[exp_name]/1e3)
-                    acc_mnist.append(max(exp_dict["net_acc"][:150]))
+                    acc_mnist.append(max(exp_dict["net_acc"][:args.baseline_max_epochs]))
                     markers_mnist.append("o")
                     if "Class" in exp_name:
                         cores_mnist.append("firebrick")
@@ -465,6 +699,8 @@ def main():
 
         plot_by_marker(ax1, acc_cifar, gb_cifar, cores_cifar, markers_cifar, "a) CIFAR-10")
         plot_by_marker(ax2, acc_mnist, gb_mnist, cores_mnist, markers_mnist, "b) MNIST")
+        ax1.set_xlabel(f"{args.metric_label} Máxima", fontsize=20)
+        ax2.set_xlabel(f"{args.metric_label} Máxima", fontsize=20)
 
         legend_colors = [
             Line2D([0], [0], marker='o', color='w', markerfacecolor='gold', label='Dir01', markersize=16),
@@ -490,8 +726,11 @@ def main():
         fig.add_artist(l1)
 
         plt.tight_layout()
-        plt.savefig("./figures/FLEG_figure4.pdf", bbox_inches='tight')
-        plt.show()
+        plt.savefig(figure_path(args, 4), bbox_inches='tight')
+        if args.no_show:
+            plt.close(fig)
+        else:
+            plt.show()
 
     elif args.figure == 5:
         # 1. Regex Pattern
@@ -614,7 +853,7 @@ def main():
                 if i == 1: # Bottom row
                     ax.set_xlabel("Tempo (minutos)", fontsize=16)
                 if j == 0: # Left column
-                    ax.set_ylabel("Acurácia", fontsize=16)
+                    ax.set_ylabel(args.metric_label, fontsize=16)
 
                 if j == 2:
                     ax.text(
@@ -632,8 +871,11 @@ def main():
         sorted_handles = [unique_legend_items[l] for l in sorted_labels]
         fig.legend(sorted_handles, sorted_labels, loc='lower right', bbox_to_anchor=(0.99, 0.1), fontsize=13, ncols=2, frameon=False,
                 columnspacing=1., handlelength=1.8, labelspacing=0.4, handletextpad=0.7)
-        plt.savefig("./figures/FLEG_figure5.pdf")
-        plt.show()
+        plt.savefig(figure_path(args, 5))
+        if args.no_show:
+            plt.close(fig)
+        else:
+            plt.show()
 
     else:
         raise ValueError(f"Figure {args.figure} not implemented")
